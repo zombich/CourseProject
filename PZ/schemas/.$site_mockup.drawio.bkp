@@ -1,0 +1,22 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.0.3 Chrome/140.0.7339.249 Electron/38.7.0 Safari/537.36" version="29.0.3">
+  <diagram name="Страница-1" id="AxJwK3kQTWjjbTAE1YBO">
+    <mxGraphModel dx="839" dy="2853" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ao7XH0_4ZMmwsNaKr3zv-1" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=none;" parent="1" vertex="1">
+          <mxGeometry x="134" y="-1650" width="560" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="cBoKolUNQMzbR6ZaES-z-3" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=none;fillColor=#EEEEEE;" vertex="1" parent="1">
+          <mxGeometry x="134" y="-1610" width="560" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="cBoKolUNQMzbR6ZaES-z-4" value="&lt;font color=&quot;#ffffff&quot; face=&quot;Verdana&quot; style=&quot;font-size: 10px;&quot;&gt;Вход&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=none;fillColor=#000000;arcSize=49;" vertex="1" parent="1">
+          <mxGeometry x="640" y="-1640" width="46" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="cBoKolUNQMzbR6ZaES-z-7" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;Регистрация&lt;/font&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="570" y="-1645" width="60" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
