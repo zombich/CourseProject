@@ -1,0 +1,408 @@
+@page
+@model WebApp.Pages.TrackModel
+@{
+    var track = Model.Track!;
+    ViewData["Title"] = $"{track.Title} — {string.Join(", ", track.Artists.Select(a => a.Name))}";
+    var lines = track.Lyrics.Replace("\r\n", "\n").Split('\n');
+    var selected = Model.SelectedAnnotation;
+    var verifiedAnnotation = track.Annotations.FirstOrDefault(a => !string.IsNullOrEmpty(a.VerificationTypeName));
+    bool isCriticOrMod = User.IsInRole("Критик") || User.IsInRole("Модератор") || User.IsInRole("Администратор");
+    bool canVerify = isCriticOrMod || track.CanManageTrack;
+    bool isModerator = User.IsInRole("Модератор") || User.IsInRole("Администратор");
+    bool hasAlbumImg = WebApp.Converters.SiteConverter.HasImage(track.AlbumImage);
+
+    var overlappingAnnotations = selected is not null
+        ? track.Annotations
+            .Where(a => a.LineStart <= selected.LineEnd && a.LineEnd >= selected.LineStart)
+            .ToList()
+        : new List<WebApp.DatabaseLibrary.DTOs.AnnotationDTO>();
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css" />
+
+<main class="page-main">
+    <div class="container">
+        @if (!string.IsNullOrEmpty(Model.StatusMessage))
+        {
+            <div class="alert alert-success" role="alert" style="margin-bottom: 20px;">
+                @Model.StatusMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert" style="margin-bottom: 20px;">
+                @Model.ErrorMessage
+            </div>
+        }
+
+        
+        <section class="surface-card track-hero">
+            <div class="track-hero-left">
+                <div class="cover-thumb cover-peach track-cover-lg" style="overflow:hidden;">
+                    @if (hasAlbumImg)
+                    {
+                        <img src="@track.AlbumImage" alt="@track.AlbumTitle" style="width:100%; height:100%; object-fit:cover;" />
+                    }
+                    else
+                    {
+                        @track.TrackNumber.ToString("D2")
+                    }
+                </div>
+
+                <div>
+                    <p class="track-album-meta">
+                        <a asp-page="/Album" asp-route-id="@track.AlbumId" class="text-link">@track.AlbumTitle</a> &bull; @track.PublicationYear
+                    </p>
+                    <h1 id="track-title" class="track-title-lg">@track.Title</h1>
+
+                    <div class="track-actions-row">
+                        @foreach (var artist in track.Artists)
+                        {
+                            <a asp-page="/Artist" asp-route-id="@artist.Id" class="artist-chip">
+                                <img src="~/icons/user.svg" width="16" height="16" alt="" />
+                                <span>@artist.Name</span>
+                            </a>
+                        }
+
+                        <button type="button" class="btn btn-outline" data-share>
+                            <img src="~/icons/share.svg" width="16" height="16" alt="" />
+                            <span>Поделиться</span>
+                        </button>
+
+                        @if (track.CanManageTrack)
+                        {
+                            <form method="post" asp-page-handler="DeleteTrack" style="display:inline;" onsubmit="return confirm('Удалить эту композицию?');">
+                                <input type="hidden" name="id" value="@track.Id" />
+                                <button type="submit" class="btn btn-outline" style="color:#dc2626; border-color:#fecaca;">Удалить трек</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                @if (track.IsLyricsVerified)
+                {
+                    <span class="badge badge-verified">
+                        <img src="~/icons/verified.svg" width="16" height="16" alt="" />
+                        <span>@(track.LyricsVerificationLabel ?? "Проверено")</span>
+                    </span>
+                }
+                else if (canVerify)
+                {
+                    <form method="post" asp-page-handler="VerifyLyrics">
+                        <input type="hidden" name="id" value="@track.Id" />
+                        <button type="submit" class="btn btn-outline">Подтвердить текст трека</button>
+                    </form>
+                }
+            </div>
+        </section>
+
+        
+        <div class="track-columns">
+            <article class="surface-card lyrics-card" id="lyrics-container">
+                <div class="lyrics-stanza">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;">
+                        <span class="lyrics-section-tag" style="margin-bottom:0;">[Текст композиции]</span>
+                        @if (track.CanManageTrack)
+                        {
+                            <button type="button" id="edit-lyrics-btn" class="icon-pencil-btn" title="Редактировать текст">
+                                <img src="~/icons/edit.svg" width="15" height="15" alt="" />
+                            </button>
+                        }
+                    </div>
+
+                    <p id="lyrics-text-block">
+                        @for (int i = 0; i < lines.Length; i++)
+                        {
+                            int lineNumber = i + 1;
+                            string lineText = lines[i];
+                            var lineAnnotations = track.Annotations
+                                .Where(a => lineNumber >= a.LineStart && lineNumber <= a.LineEnd)
+                                .ToList();
+
+                            <span class="lyric-line" data-line="@lineNumber">@if (lineAnnotations.Count > 0)
+                            {
+                                var singleLineFragments = lineAnnotations
+                                    .Where(a => a.LineStart == lineNumber && a.LineEnd == lineNumber && a.CharEnd > a.CharStart && a.CharEnd <= lineText.Length)
+                                    .OrderBy(a => a.CharStart)
+                                    .ToList();
+
+                                bool canRenderFragments = singleLineFragments.Count == lineAnnotations.Count
+                                    && singleLineFragments.Zip(singleLineFragments.Skip(1), (a, b) => a.CharEnd <= b.CharStart).All(ok => ok);
+
+                                if (canRenderFragments && singleLineFragments.Count > 0)
+                                {
+                                    int pos = 0;
+                                    foreach (var ann in singleLineFragments)
+                                    {
+                                        if (ann.CharStart > pos)
+                                        {
+                                            @lineText.Substring(pos, ann.CharStart - pos)
+                                        }
+                                        var isSel = selected?.Id == ann.Id;
+                                        <a asp-page="/Track" asp-route-id="@track.Id" asp-route-annotationId="@ann.Id" class="lyric-annotated @(isSel ? "is-selected" : "")">@lineText.Substring(ann.CharStart, ann.CharEnd - ann.CharStart)</a>
+                                        pos = ann.CharEnd;
+                                    }
+                                    if (pos < lineText.Length)
+                                    {
+                                        @lineText.Substring(pos)
+                                    }
+                                }
+                                else
+                                {
+                                    var primaryAnn = lineAnnotations.FirstOrDefault(a => a.Id == selected?.Id) ?? lineAnnotations.First();
+                                    var isSel = selected?.Id == primaryAnn.Id;
+                                    <a asp-page="/Track" asp-route-id="@track.Id" asp-route-annotationId="@primaryAnn.Id" class="lyric-annotated @(isSel ? "is-selected" : "")">@lineText</a>
+                                }
+                            }
+                            else
+                            {
+                                @lineText
+                            }</span><br />
+                        }
+                    </p>
+
+                    @if (track.CanManageTrack)
+                    {
+                        <form id="lyrics-edit-form" method="post" asp-page-handler="UpdateLyrics" style="display:none; margin-top:10px;">
+                            <input type="hidden" name="id" value="@track.Id" />
+                            <div class="form-group">
+                                <textarea name="Lyrics" class="form-input" rows="10" required>@track.Lyrics</textarea>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="submit" class="btn btn-primary">Сохранить текст</button>
+                                <button type="button" id="cancel-lyrics-btn" class="btn btn-outline">Отмена</button>
+                            </div>
+                        </form>
+                    }
+                </div>
+
+                <div class="lyrics-stanza">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;">
+                        <span class="lyrics-section-tag" style="margin-bottom:0;">[О композиции]</span>
+                        @if (track.CanManageTrack)
+                        {
+                            <button type="button" id="edit-about-btn" class="icon-pencil-btn" title="Редактировать описание композиции">
+                                <img src="~/icons/edit.svg" width="15" height="15" alt="" />
+                            </button>
+                        }
+                    </div>
+
+                    <p id="about-display" class="bio-text">
+                        @(string.IsNullOrWhiteSpace(track.About) ? "Описание композиции пока не добавлено." : track.About)
+                    </p>
+
+                    @if (track.CanManageTrack)
+                    {
+                        <form id="about-edit-form" method="post" asp-page-handler="UpdateAbout" style="display:none; margin-top:10px;">
+                            <input type="hidden" name="id" value="@track.Id" />
+                            <div class="form-group">
+                                <textarea name="About" class="form-input" rows="3" placeholder="Объясните выбранные строчки...">@track.About</textarea>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="submit" class="btn btn-primary">Сохранить</button>
+                                <button type="button" id="cancel-about-btn" class="btn btn-outline">Отмена</button>
+                            </div>
+                        </form>
+                    }
+                </div>
+            </article>
+
+            <aside class="surface-card annotation-panel">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:16px;">
+                        <button type="button" id="open-add-annotation-btn" class="btn btn-primary" style="width:100%;">
+                            + Добавить аннотацию
+                        </button>
+                    </div>
+
+                    <div id="create-annotation-box" style="display:none; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <p class="annotation-label" style="margin-bottom:0;">Новая аннотация</p>
+                            <button type="button" id="close-add-annotation-btn" class="btn btn-outline" style="padding:2px 10px; font-size:0.8rem;">Отмена</button>
+                        </div>
+                        <p id="selection-hint" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                            Выделите мышкой фрагмент текста слева, чтобы привязать к нему аннотацию.
+                        </p>
+                        <form id="annotation-form" method="post" asp-page-handler="AddAnnotation" >
+                            <input type="hidden" name="id" value="@track.Id" />
+                            <input type="hidden" id="line-start" name="LineStart" value="0" />
+                            <input type="hidden" id="line-end" name="LineEnd" value="0" />
+                            <input type="hidden" id="char-start" name="CharStart" value="0" />
+                            <input type="hidden" id="char-end" name="CharEnd" value="0" />
+
+                            <div class="form-group">
+                                <label for="annotation-content" class="form-label">Разбор выделенного фрагмента</label>
+                                <textarea id="annotation-content" name="AnnotationContent" class="form-input" rows="4" placeholder="Опишите смысл выбранных строк..." @(isCriticOrMod ? "" : "required")></textarea>
+                            </div>
+
+<input type="file" id="easymde-image-input" accept=".png,.jpg,.jpeg,.webp" style="display:none;" />
+
+                            <button type="submit" id="save-annotation-btn" class="btn btn-primary" disabled>Сохранить аннотацию</button>
+                        </form>
+                    </div>
+                }
+
+                <div id="annotation-view-box">
+                    @if (selected is not null)
+                    {
+                        @if (overlappingAnnotations.Count > 1)
+                        {
+                            <p class="annotation-label" style="margin-bottom:6px;">Варианты разбора (@overlappingAnnotations.Count):</p>
+                            <div class="ann-switcher">
+                                @for (int idx = 0; idx < overlappingAnnotations.Count; idx++)
+                                {
+                                    var oa = overlappingAnnotations[idx];
+                                    <a asp-page="/Track"
+                                       asp-route-id="@track.Id"
+                                       asp-route-annotationId="@oa.Id"
+                                       class="ann-pill @(oa.Id == selected.Id ? "is-active" : "")">
+                                        #@(idx + 1) @oa.AuthorUsername
+                                    </a>
+                                }
+                            </div>
+                        }
+
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                            <p class="annotation-label" style="margin-bottom:0;">
+                                Аннотация
+                            </p>
+                            @if (!string.IsNullOrEmpty(selected.VerificationTypeName))
+                            {
+                                <span class="badge badge-verified" style="font-size:0.75rem; padding:3px 8px;">@selected.VerificationTypeName</span>
+                            }
+                        </div>
+
+                        <div class="annotation-author-row">
+                            <a asp-page="/Profile" asp-route-id="@selected.AuthorId" class="annotation-author-info">
+                                <span class="avatar-circle">
+                                    <img src="~/icons/user.svg" width="18" height="18" alt="" />
+                                </span>
+                                <div>
+                                    <span class="annotation-author-name">@selected.AuthorUsername</span>
+                                    <span class="annotation-author-role">@selected.AuthorRole</span>
+                                </div>
+                            </a>
+                            <span class="annotation-time">@(selected.CreatedAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "")</span>
+                        </div>
+
+                        <div class="annotation-body">@Html.Raw(WebApp.Converters.MarkDownConverter.ConvertToHtml(selected.Content))</div>
+
+                        <div class="annotation-footer">
+                            <div class="vote-group">
+                                @if (User.Identity?.IsAuthenticated == true)
+                                {
+                                    <form method="post" asp-page-handler="ToggleLike" style="display:inline;">
+                                        <input type="hidden" name="id" value="@track.Id" />
+                                        <input type="hidden" name="annotationId" value="@selected.Id" />
+                                        <button type="submit" class="vote-btn @(selected.IsLikedByCurrentUser ? "is-upvoted" : "")">
+                                            <img src="~/icons/like.svg" width="16" height="16" alt="" />
+                                            <span>+@selected.LikesCount</span>
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <a asp-page="/Login" class="vote-btn">
+                                        <img src="~/icons/like.svg" width="16" height="16" alt="" />
+                                        <span>+@selected.LikesCount</span>
+                                    </a>
+                                }
+
+                                @if (canVerify && string.IsNullOrEmpty(selected.VerificationTypeName))
+                                {
+                                    <form method="post" asp-page-handler="VerifyAnnotation" style="display:inline; margin-left: 8px;">
+                                        <input type="hidden" name="id" value="@track.Id" />
+                                        <input type="hidden" name="annotationId" value="@selected.Id" />
+                                        <button type="submit" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem;">Подтвердить аннотацию</button>
+                                    </form>
+                                }
+
+                                @if (isModerator)
+                                {
+                                    <form method="post" asp-page-handler="DeleteAnnotation" style="display:inline; margin-left: 8px;" onsubmit="return confirm('Удалить эту аннотацию?');">
+                                        <input type="hidden" name="id" value="@track.Id" />
+                                        <input type="hidden" name="annotationId" value="@selected.Id" />
+                                        <button type="submit" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem; color:#dc2626; border-color:#fecaca;">Удалить аннотацию</button>
+                                    </form>
+                                }
+                            </div>
+
+                            <span class="comment-count" title="Комментарии">
+                                <img src="~/icons/comment.svg" width="16" height="16" alt="" />
+                                <span>@selected.CommentsCount</span>
+                            </span>
+                        </div>
+
+                        <div style="margin-top: 20px; border-top: 1px solid var(--border-color, #e5e7eb); padding-top: 16px;">
+                            <p class="annotation-label" style="margin-bottom: 12px;">Комментарии (@selected.Comments.Count)</p>
+                            @if (selected.Comments.Count == 0)
+                            {
+                                <p style="font-size:0.875rem; color: var(--text-secondary);">Комментариев нет.</p>
+                            }
+                            else
+                            {
+                                foreach (var comment in selected.Comments)
+                                {
+                                    <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color, #f1f5f9);">
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; margin-bottom:4px;">
+                                            <a asp-page="/Profile" asp-route-id="@comment.AuthorId" class="text-link"><strong>@comment.AuthorUsername</strong></a>
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                <span class="annotation-time">@(comment.CreatedAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "")</span>
+                                                @if (isModerator)
+                                                {
+                                                    <form method="post" asp-page-handler="DeleteComment" style="display:inline;">
+                                                        <input type="hidden" name="id" value="@track.Id" />
+                                                        <input type="hidden" name="annotationId" value="@selected.Id" />
+                                                        <input type="hidden" name="commentId" value="@comment.Id" />
+                                                        <button type="submit" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem; color: #dc2626; border-color: #fecaca;">Удалить</button>
+                                                    </form>
+                                                }
+                                            </div>
+                                        </div>
+                                        <p style="margin:0; font-size:0.9rem;">@comment.Content</p>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <form method="post" asp-page-handler="AddComment" style="margin-top: 16px;">
+                                <input type="hidden" name="id" value="@track.Id" />
+                                <input type="hidden" name="annotationId" value="@selected.Id" />
+                                <div class="form-group">
+                                    <label for="comment-content" class="form-label">Написать комментарий</label>
+                                    <textarea id="comment-content" name="CommentContent" class="form-input" rows="2" placeholder="Комментарий..." required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-outline">Отправить</button>
+                            </form>
+                        }
+                    }
+                    else
+                    {
+                        <p class="annotation-label">Аннотации</p>
+                        <p class="annotation-body">Для этой композиции пока нет аннотаций.</p>
+                    }
+
+                    @if (User.Identity?.IsAuthenticated != true)
+                    {
+                        <p class="auth-footer-note" style="margin-top: 20px;">
+                            <a asp-page="/Login">Войдите</a>, чтобы добавлять аннотации, лайки и комментарии.
+                        </p>
+                    }
+                </div>
+            </aside>
+        </div>
+    </div>
+</main>
+
+@section Scripts {
+    @if (isCriticOrMod)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+    }
+    <script src="~/js/track.js" asp-append-version="true"></script>
+}

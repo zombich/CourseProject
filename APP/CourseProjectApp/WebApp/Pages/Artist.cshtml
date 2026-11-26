@@ -1,0 +1,230 @@
+@page
+@model WebApp.Pages.ArtistModel
+@{
+    var artist = Model.Artist!;
+    ViewData["Title"] = artist.Name;
+    string[] coverClasses = { "cover-peach", "cover-blue", "cover-teal", "cover-coral", "cover-violet" };
+    bool canManage = artist.CanManageArtist;
+    bool hasImage = WebApp.Converters.SiteConverter.HasImage(artist.AvatarUrl!);
+}
+
+<main class="page-main">
+    <div class="container">
+        @if (!string.IsNullOrEmpty(Model.StatusMessage))
+        {
+            <div class="alert alert-success" role="alert" style="margin-bottom: 20px;">
+                @Model.StatusMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert" style="margin-bottom: 20px;">
+                @Model.ErrorMessage
+            </div>
+        }
+
+        
+        <section class="surface-card profile-banner-wrap">
+            <div class="profile-banner" style="@WebApp.Converters.SiteConverter.GetGradient()">
+                <div class="profile-identity">
+                    @if (canManage)
+                    {
+                        <form method="post" asp-page-handler="UpdateAvatar" enctype="multipart/form-data" style="margin:0;">
+                            <input type="hidden" name="id" value="@artist.Id" />
+                            <input id="artist-avatar-upload"
+                                   name="AvatarFile"
+                                   type="file"
+                                   accept=".png,.jpg,.jpeg,.webp"
+                                   style="display:none;"
+                                   onchange="if (this.files.length > 0) this.form.submit();" />
+                            <label for="artist-avatar-upload" class="avatar-upload-wrap" title="Нажмите, чтобы изменить картинку артиста">
+                                <span class="profile-avatar-lg" style="overflow:hidden;">
+                                    @if (hasImage)
+                                    {
+                                        <img src="@artist.AvatarUrl" alt="@artist.Name" style="width:100%; height:100%; object-fit:cover;" />
+                                    }
+                                    else
+                                    {
+                                        <img src="~/icons/user.svg" width="40" height="40" alt="" />
+                                    }
+                                </span>
+                                <span class="avatar-upload-overlay">
+                                    <img src="~/icons/photo_camera.svg" width="20" height="20" alt="" style="margin-bottom:2px;" />
+                                    <span>Изменить</span>
+                                </span>
+                            </label>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="profile-avatar-lg" style="overflow:hidden;">
+                            @if (hasImage)
+                            {
+                                <img src="@artist.AvatarUrl" alt="@artist.Name" style="width:100%; height:100%; object-fit:cover;" />
+                            }
+                            else
+                            {
+                                <img src="~/icons/user.svg" width="40" height="40" alt="" />
+                            }
+                        </span>
+                    }
+
+                    <div>
+                        <span class="badge badge-role">Артист</span>
+                        <h1 id="artist-name" class="profile-username">@artist.Name</h1>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-outline" data-share>
+                    <img src="~/icons/share.svg" width="16" height="16" alt="" />
+                    <span>Поделиться</span>
+                </button>
+            </div>
+        </section>
+
+        <div class="profile-columns">
+            <aside class="profile-sidebar">
+                <section class="surface-card info-card">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
+                        <h2 class="info-card-title" style="margin-bottom:0;">Описание</h2>
+                        @if (canManage)
+                        {
+                            <button type="button" id="edit-artist-bio-btn" class="icon-pencil-btn" title="Редактировать карточку">
+                                <img src="~/icons/edit.svg" width="15" height="15" alt="" />
+                            </button>
+                        }
+                    </div>
+
+                    <p id="artist-bio-display" class="bio-text">
+                        @(string.IsNullOrWhiteSpace(artist.Bio) ? "Описание артиста пока не добавлено." : artist.Bio)
+                    </p>
+
+                    @if (canManage)
+                    {
+                        <form id="artist-bio-form" method="post" asp-page-handler="UpdateBio" style="display:none;">
+                            <input type="hidden" name="id" value="@artist.Id" />
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <label for="artist-edit-name" class="form-label">Имя</label>
+                                <input id="artist-edit-name" name="Name" type="text" class="form-input" value="@artist.Name" required />
+                            </div>
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <label for="artist-edit-bio" class="form-label">Описание</label>
+                                <textarea id="artist-edit-bio" name="Bio" class="form-input" rows="3" placeholder="Описание артиста...">@artist.Bio</textarea>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="submit" class="btn btn-primary">Сохранить</button>
+                                <button type="button" id="cancel-artist-bio-btn" class="btn btn-outline">Отмена</button>
+                            </div>
+                        </form>
+                    }
+                </section>
+
+                <section class="surface-card info-card">
+                    <h2 class="info-card-title">Статистика</h2>
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <span class="stat-value">@artist.Albums.Count</span>
+                            <span class="stat-label">Альбомы</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">@artist.Tracks.Count</span>
+                            <span class="stat-label">Треки</span>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+
+            <div class="contributions-list">
+                <section class="section-block">
+                    <div class="section-header">
+                        <h2 id="artist-albums-heading" class="section-title">Альбомы</h2>
+                    </div>
+
+                    @if (artist.Albums.Count == 0)
+                    {
+                        <div class="surface-card info-card">
+                            <p class="bio-text">Альбомы пока не добавлены.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="critics-grid">
+                            @foreach (var album in artist.Albums)
+                            {
+                                bool hasAlbumImg = !string.IsNullOrWhiteSpace(album.CoverImageUrl)
+                                    && album.CoverImageUrl.StartsWith("/images/", StringComparison.OrdinalIgnoreCase);
+
+                                <a asp-page="/Album" asp-route-id="@album.Id" class="surface-card critic-card">
+                                    <span class="cover-thumb cover-blue" style="overflow:hidden;">
+                                        @if (hasAlbumImg)
+                                        {
+                                            <img src="@album.CoverImageUrl" alt="@album.Title" style="width:100%; height:100%; object-fit:cover;" />
+                                        }
+                                        else
+                                        {
+                                            @album.ReleaseDate.Year
+                                        }
+                                    </span>
+                                    <div class="critic-meta">
+                                        <span class="critic-name">@album.Title</span>
+                                        <span class="critic-stats">@album.ReleaseDate.ToString("dd.MM.yyyy")</span>
+                                    </div>
+                                    <span class="badge badge-role">Альбом</span>
+                                </a>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <section class="section-block">
+                    <div class="section-header">
+                        <h2 id="artist-tracks-heading" class="section-title">Треки</h2>
+                    </div>
+
+                    <div class="surface-card chart-list">
+                        @if (artist.Tracks.Count == 0)
+                        {
+                            <div class="chart-row" style="justify-content:center; color: var(--text-secondary);">
+                                Треки пока не добавлены.
+                            </div>
+                        }
+                        else
+                        {
+                            for (int i = 0; i < artist.Tracks.Count; i++)
+                            {
+                                var track = artist.Tracks[i];
+                                var coverClass = coverClasses[i % coverClasses.Length];
+                                bool hasTrackImg = !string.IsNullOrWhiteSpace(track.AlbumImage)
+                                    && track.AlbumImage.StartsWith("/images/", StringComparison.OrdinalIgnoreCase);
+
+                                <a asp-page="/Track" asp-route-id="@track.Id" class="chart-row">
+                                    <span class="chart-rank">@(i + 1)</span>
+                                    <span class="cover-thumb @coverClass" style="overflow:hidden;">
+                                        @if (hasTrackImg)
+                                        {
+                                            <img src="@track.AlbumImage" alt="@track.AlbumTitle" style="width:100%; height:100%; object-fit:cover;" />
+                                        }
+                                        else
+                                        {
+                                            @((i + 1).ToString("D2"))
+                                        }
+                                    </span>
+                                    <span class="chart-track-title">@track.Title</span>
+                                    <span class="chart-artist">@track.AlbumTitle</span>
+                                    <span class="chart-views">
+                                        <span>@WebApp.Converters.SiteConverter.FormatViews(track.ViewsCount)</span>
+                                        <img src="~/icons/view.svg" width="16" height="16" alt="" />
+                                    </span>
+                                </a>
+                            }
+                        }
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</main>
+
+@section Scripts {
+    <script src="~/js/artist.js" asp-append-version="true"></script>
+}

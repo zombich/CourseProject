@@ -1,0 +1,281 @@
+@page
+@model WebApp.Pages.ProfileModel
+@{
+    var profile = Model.Profile!;
+    ViewData["Title"] = profile.Username;
+    bool hasAvatar = WebApp.Converters.SiteConverter.HasImage(profile.AvatarUrl!);
+    bool isModerator = User.IsInRole("Модератор") || User.IsInRole("Администратор");
+}
+
+<main class="page-main">
+    <div class="container">
+        @if (!string.IsNullOrEmpty(Model.StatusMessage))
+        {
+            <div class="alert alert-success" role="alert" style="margin-bottom: 20px;">
+                @Model.StatusMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert" style="margin-bottom: 20px;">
+                @Model.ErrorMessage
+            </div>
+        }
+
+        
+        <section class="surface-card profile-banner-wrap">
+            <div class="profile-banner" style="@WebApp.Converters.SiteConverter.GetGradient()">
+                <div class="profile-identity">
+                    @if (Model.IsOwnProfile)
+                    {
+                        <form method="post" asp-page-handler="UpdateAvatar" enctype="multipart/form-data" style="margin:0;">
+                            <input id="avatar-upload-input"
+                                   name="AvatarFile"
+                                   type="file"
+                                   accept=".png,.jpg,.jpeg,.webp"
+                                   style="display:none;"
+                                   onchange="if (this.files.length > 0) this.form.submit();" />
+                            <label for="avatar-upload-input" class="avatar-upload-wrap" title="Нажмите, чтобы изменить аватарку">
+                                <span class="profile-avatar-lg" style="overflow:hidden;">
+                                    @if (hasAvatar)
+                                    {
+                                        <img src="@profile.AvatarUrl" alt="@profile.Username" style="width:100%; height:100%; object-fit:cover;" />
+                                    }
+                                    else
+                                    {
+                                        <img src="~/icons/user.svg" width="40" height="40" alt="" />
+                                    }
+                                </span>
+                                <span class="avatar-upload-overlay">
+                                    <img src="~/icons/photo_camera.svg" width="20" height="20" alt="" style="margin-bottom:2px;" />
+                                    <span>Изменить</span>
+                                </span>
+                            </label>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="profile-avatar-lg" style="overflow:hidden;">
+                            @if (hasAvatar)
+                            {
+                                <img src="@profile.AvatarUrl" alt="@profile.Username" style="width:100%; height:100%; object-fit:cover;" />
+                            }
+                            else
+                            {
+                                <img src="~/icons/user.svg" width="40" height="40" alt="" />
+                            }
+                        </span>
+                    }
+
+                    <div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <span class="badge badge-role">@profile.RoleName</span>
+                            @if (profile.CreatedAt.HasValue)
+                            {
+                                <span class="annotation-time">На сайте с @profile.CreatedAt.Value.ToLocalTime().ToString("dd.MM.yyyy")</span>
+                            }
+                        </div>
+                        <h1 id="profile-username" class="profile-username">@profile.Username</h1>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-outline" data-share>
+                    <img src="~/icons/share.svg" width="16" height="16" alt="" />
+                    <span>Поделиться</span>
+                </button>
+            </div>
+        </section>
+
+        <div class="profile-columns">
+            <aside class="profile-sidebar">
+                <section class="surface-card info-card">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
+                        <h2 class="info-card-title" style="margin-bottom:0;">Описание</h2>
+                        @if (Model.IsOwnProfile)
+                        {
+                            <button type="button" id="edit-bio-btn" class="icon-pencil-btn" title="Редактировать описание">
+                                <img src="~/icons/edit.svg" width="15" height="15" alt="" />
+                            </button>
+                        }
+                    </div>
+
+                    <p id="bio-display" class="bio-text">
+                        @(string.IsNullOrWhiteSpace(profile.Bio) ? "Пользователь пока не добавил описание." : profile.Bio)
+                    </p>
+
+                    @if (Model.IsOwnProfile)
+                    {
+                        <form id="bio-edit-form" method="post" asp-page-handler="UpdateBio" style="display:none;">
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <textarea name="Bio" class="form-input" rows="3" placeholder="Расскажите о себе...">@profile.Bio</textarea>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="submit" class="btn btn-primary">Сохранить</button>
+                                <button type="button" id="cancel-bio-btn" class="btn btn-outline">Отмена</button>
+                            </div>
+                        </form>
+                    }
+                </section>
+
+                <section class="surface-card info-card">
+                    <h2 class="info-card-title">Статистика</h2>
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <span class="stat-value">@profile.AnnotationsCount</span>
+                            <span class="stat-label">Аннотации</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">@profile.LikesCount</span>
+                            <span class="stat-label">Лайки</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">@profile.VerifiedAnnotationsCount</span>
+                            <span class="stat-label">Проверено</span>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+
+            <section class="contributions-list">
+                <h2 id="contributions-heading" class="info-card-title">Вклад в сообщество</h2>
+
+                @if (profile.Contributions.Count == 0)
+                {
+                    <div class="surface-card contribution-card">
+                        <p class="bio-text">Пользователь пока не добавил аннотаций.</p>
+                    </div>
+                }
+                else
+                {
+                    foreach (var item in profile.Contributions)
+                    {
+                        bool hasAlbumImg = !string.IsNullOrWhiteSpace(item.AlbumImage)
+                            && item.AlbumImage.StartsWith("/images/", StringComparison.OrdinalIgnoreCase);
+
+                        <article id="annotation-@item.AnnotationId" class="surface-card contribution-card">
+                            <a asp-page="/Track" asp-route-id="@item.TrackId" asp-route-annotationId="@item.AnnotationId" class="contribution-track-header">
+                                <span class="cover-thumb cover-peach" style="overflow:hidden;">
+                                    @if (hasAlbumImg)
+                                    {
+                                        <img src="@item.AlbumImage" alt="@item.AlbumTitle" style="width:100%; height:100%; object-fit:cover;" />
+                                    }
+                                    else
+                                    {
+                                        @item.PublicationYear
+                                    }
+                                </span>
+                                <div>
+                                    <span class="contribution-track-meta">@item.AlbumTitle &bull; @item.PublicationYear</span>
+                                    <h3 class="contribution-track-title">@item.TrackTitle</h3>
+                                </div>
+                            </a>
+
+                            <div class="annotation-author-row">
+                                <span class="annotation-author-info">
+                                    <span class="annotation-author-name">@profile.Username</span>
+                                </span>
+                                <span class="annotation-time">@(item.CreatedAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "")</span>
+                            </div>
+
+                            <div class="annotation-body">@Html.Raw(WebApp.Converters.MarkDownConverter.ConvertToHtml(item.Content))</div>
+
+                            <div class="annotation-footer">
+                                <div class="vote-group">
+                                    @if (isModerator)
+                                    {
+                                        <form method="post" asp-page-handler="DeleteAnnotation" style="display:inline; margin-right:8px;" onsubmit="return confirm('Удалить эту аннотацию?');">
+                                            <input type="hidden" name="profileId" value="@profile.Id" />
+                                            <input type="hidden" name="annotationId" value="@item.AnnotationId" />
+                                            <button type="submit" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.78rem; color:#dc2626; border-color:#fecaca;">Удалить</button>
+                                        </form>
+                                    }
+                                    @if (User.Identity?.IsAuthenticated == true)
+                                    {
+                                        <form method="post" asp-page-handler="ToggleLike" style="display:inline;">
+                                            <input type="hidden" name="profileId" value="@profile.Id" />
+                                            <input type="hidden" name="annotationId" value="@item.AnnotationId" />
+                                            <button type="submit" class="vote-btn @(item.IsLikedByCurrentUser ? "is-upvoted" : "")">
+                                                <img src="~/icons/like.svg" width="16" height="16" alt="" />
+                                                <span>+@item.LikesCount</span>
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <a asp-page="/Login" class="vote-btn">
+                                            <span>+@item.LikesCount</span>
+                                        </a>
+                                    }
+                                </div>
+
+                                <span class="comment-count">
+                                    <img src="~/icons/comment.svg" width="16" height="16" alt="" />
+                                    <span>@item.CommentsCount</span>
+                                </span>
+                            </div>
+
+                            <details @(Model.OpenAnnotationId == item.AnnotationId ? "open" : "") style="margin-top: 12px; border-top: 1px solid var(--border-color, #e5e7eb); padding-top: 10px;">
+                                <summary style="cursor:pointer; font-size:0.875rem; font-weight:600; color: var(--text-secondary);">
+                                    Комментарии (@item.Comments.Count)
+                                </summary>
+
+                                <div style="margin-top: 12px;">
+                                    @if (item.Comments.Count == 0)
+                                    {
+                                        <p style="font-size:0.85rem; color: var(--text-secondary);">Комментариев пока нет.</p>
+                                    }
+                                    else
+                                    {
+                                        foreach (var comment in item.Comments)
+                                        {
+                                            <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color, #f1f5f9);">
+                                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; margin-bottom:4px;">
+                                                    <a asp-page="/Profile" asp-route-id="@comment.AuthorId" class="text-link"><strong>@comment.AuthorUsername</strong></a>
+                                                    <div style="display:flex; align-items:center; gap:8px;">
+                                                        <span class="annotation-time">@(comment.CreatedAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "")</span>
+                                                        @if (isModerator)
+                                                        {
+                                                            <form method="post" asp-page-handler="DeleteComment" style="display:inline;">
+                                                                <input type="hidden" name="profileId" value="@profile.Id" />
+                                                                <input type="hidden" name="annotationId" value="@item.AnnotationId" />
+                                                                <input type="hidden" name="commentId" value="@comment.Id" />
+                                                                <button type="submit" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem; color: #dc2626; border-color: #fecaca;">Удалить</button>
+                                                            </form>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <p style="margin:0; font-size:0.9rem;">@comment.Content</p>
+                                            </div>
+                                        }
+                                    }
+
+                                    @if (User.Identity?.IsAuthenticated == true)
+                                    {
+                                        <form method="post" asp-page-handler="AddComment" style="margin-top: 10px;">
+                                            <input type="hidden" name="profileId" value="@profile.Id" />
+                                            <input type="hidden" name="annotationId" value="@item.AnnotationId" />
+                                            <div class="form-group" style="margin-bottom:8px;">
+                                                <textarea name="CommentContent" class="form-input" rows="2" placeholder="Написать комментарий..." required></textarea>
+                                            </div>
+                                            <button type="submit" class="btn btn-outline">Отправить</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <p style="font-size:0.85rem; margin-top:8px;">
+                                            <a asp-page="/Login" class="text-link">Войдите</a>, чтобы оставить комментарий.
+                                        </p>
+                                    }
+                                </div>
+                            </details>
+                        </article>
+                    }
+                }
+            </section>
+        </div>
+    </div>
+</main>
+
+@section Scripts {
+    <script src="~/js/profile.js" asp-append-version="true"></script>
+}

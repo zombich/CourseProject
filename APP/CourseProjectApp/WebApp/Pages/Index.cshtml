@@ -1,10 +1,87 @@
-﻿@page
+@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Главная";
+    string[] coverClasses = { "cover-peach", "cover-blue", "cover-teal", "cover-coral", "cover-violet" };
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<main class="page-main">
+    <div class="container">
+        
+        <section class="section-block">
+            <div class="section-header">
+                <h1 id="top-tracks-heading" class="section-title">Лучшие композиции</h1>
+            </div>
+
+            <div class="surface-card chart-list">
+                @if (Model.Tracks.Count == 0)
+                {
+                    <div class="chart-row" style="justify-content:center; color: var(--text-secondary);">
+                        Композиции не найдены.
+                    </div>
+                }
+                else
+                {
+                    for (int i = 0; i < Model.Tracks.Count; i++)
+                    {
+                        var track = Model.Tracks[i];
+                        var coverClass = coverClasses[i % coverClasses.Length];
+                        var artistsText = string.Join(", ", track.Artists.Select(a => a.Name));
+
+                        <a asp-page="/Track" asp-route-id="@track.Id" class="chart-row">
+                            <span class="chart-rank">@(i + 1)</span>
+                            <span class="cover-thumb @coverClass" style="overflow:hidden;">
+                                @if (!string.IsNullOrWhiteSpace(track.AlbumImage) && track.AlbumImage.StartsWith("/images/", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <img src="@track.AlbumImage" alt="@track.AlbumTitle" style="width:100%; height:100%; object-fit:cover;" />
+                                }
+                                else
+                                {
+                                    @((i + 1).ToString("D2"))
+                                }
+                            </span>
+                            <span class="chart-track-title">@track.Title</span>
+                            <span class="chart-artist">@artistsText</span>
+                            <span class="chart-views">
+                                <span>@WebApp.Converters.SiteConverter.FormatViews(track.ViewsCount)</span>
+                                <img src="~/icons/view.svg" width="16" height="16" alt="" />
+                            </span>
+                        </a>
+                    }
+                }
+            </div>
+        </section>
+
+        
+        <section class="section-block">
+            <div class="section-header">
+                <h2 id="top-critics-heading" class="section-title">Лучшие критики</h2>
+            </div>
+
+            <div class="critics-grid">
+                @if (Model.Critics.Count == 0)
+                {
+                    <div class="surface-card critic-card" style="color: var(--text-secondary);">
+                        Критики не найдены.
+                    </div>
+                }
+                else
+                {
+                    foreach (var critic in Model.Critics)
+                    {
+                        <a asp-page="/Profile" asp-route-id="@critic.Id" class="surface-card critic-card">
+                            <span class="avatar-circle">
+                                <img src="~/icons/user.svg" width="20" height="20" alt="" />
+                            </span>
+                            <div class="critic-meta">
+                                <span class="critic-name">@critic.Username</span>
+                                <span class="critic-stats">@critic.AnnotationsCount аннотаций &bull; +@critic.LikesCount</span>
+                            </div>
+                            <span class="badge badge-role">@critic.RoleName</span>
+                        </a>
+                    }
+                }
+            </div>
+        </section>
+    </div>
+</main>

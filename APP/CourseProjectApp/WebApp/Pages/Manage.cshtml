@@ -1,0 +1,317 @@
+@page
+@model WebApp.Pages.ManageModel
+@{
+    ViewData["Title"] = "Студия";
+    bool isModeratorOrAdmin = User.IsInRole("Модератор") || User.IsInRole("Администратор");
+    bool isAdmin = User.IsInRole("Администратор");
+}
+
+<main class="page-main">
+    <div class="container">
+        <section class="section-block">
+            <div class="section-header">
+                <h1 class="section-title">Студия управления контентом</h1>
+                <a asp-page="/Manage" asp-page-handler="ExportCsv" class="btn btn-outline">
+                    Скачать статистику
+                </a>
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+            {
+                <div class="alert alert-success" role="alert" style="margin-bottom: 20px;">
+                    @Model.SuccessMessage
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger" role="alert" style="margin-bottom: 20px;">
+                    @Model.ErrorMessage
+                </div>
+            }
+
+            <div class="profile-columns">
+                <div class="profile-sidebar">
+                    @if (isModeratorOrAdmin)
+                    {
+                        <section class="surface-card info-card">
+                            <h2 class="info-card-title">Добавить карточку артиста</h2>
+                            <form method="post" asp-page-handler="CreateArtist" enctype="multipart/form-data">
+                                <div class="form-group">
+                                    <label for="artist-name" class="form-label">Имя артиста</label>
+                                    <input id="artist-name" name="ArtistName" type="text" class="form-input" placeholder="Псевдоним артиста" required />
+                                </div>
+                                <div class="form-group">
+                                    <label for="artist-bio" class="form-label">Описание</label>
+                                    <textarea id="artist-bio" name="ArtistBio" class="form-input" rows="2" placeholder="Краткая биография..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="artist-avatar-file" class="form-label">Картинка артиста</label>
+                                    <input id="artist-avatar-file" name="ArtistAvatarFile" type="file" accept=".png,.jpg,.jpeg,.webp" class="form-input" />
+                                </div>
+                                <button type="submit" class="btn btn-primary">Создать артиста</button>
+                            </form>
+                        </section>
+
+                        <section class="surface-card info-card">
+                            <h2 class="info-card-title">Выдать доступ к карточке артиста</h2>
+                            <form method="post" asp-page-handler="GrantAccess">
+                                <div class="form-group">
+                                    <label class="form-label">Пользователь (роль «артист»)</label>
+                                    <input type="hidden" id="grant-user-id" name="GrantUserId" value="@(Model.Context.ArtistUsers.FirstOrDefault()?.Id ?? 0)" />
+                                    <div class="picker-box" data-picker="grant-user-id">
+                                        <input type="text" class="picker-search" placeholder="Поиск пользователя..." />
+                                        <div class="picker-list">
+                                            @for (int i = 0; i < Model.Context.ArtistUsers.Count; i++)
+                                            {
+                                                var u = Model.Context.ArtistUsers[i];
+                                                <button type="button" class="picker-item @(i == 0 ? "is-selected" : "")" data-value="@u.Id">@u.Username</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Карточка артиста</label>
+                                    <input type="hidden" id="grant-artist-id" name="GrantArtistId" value="@(Model.Context.Artists.FirstOrDefault()?.Id ?? 0)" />
+                                    <div class="picker-box" data-picker="grant-artist-id">
+                                        <input type="text" class="picker-search" placeholder="Поиск артиста..." />
+                                        <div class="picker-list">
+                                            @for (int i = 0; i < Model.Context.Artists.Count; i++)
+                                            {
+                                                var a = Model.Context.Artists[i];
+                                                <button type="button" class="picker-item @(i == 0 ? "is-selected" : "")" data-value="@a.Id">@a.Name</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-outline">Выдать доступ</button>
+                            </form>
+                        </section>
+                    }
+
+                    @if (Model.Context.Artists.Count > 0)
+                    {
+                        <section class="surface-card info-card">
+                            <h2 class="info-card-title">Добавить альбом</h2>
+                            <form method="post" asp-page-handler="CreateAlbum" enctype="multipart/form-data">
+                                <div class="form-group">
+                                    <label for="album-title" class="form-label">Название альбома</label>
+                                    <input id="album-title" name="AlbumTitle" type="text" class="form-input" placeholder="Название альбома" required />
+                                </div>
+                                <div class="form-group">
+                                    <label for="album-date" class="form-label">Дата релиза</label>
+                                    <input id="album-date" name="AlbumReleaseDate" type="date" value="@DateTime.UtcNow.ToString("yyyy-MM-dd")" class="form-input" required />
+                                </div>
+                                <div class="form-group">
+                                    <label for="album-cover-file" class="form-label">Обложка альбома</label>
+                                    <input id="album-cover-file" name="AlbumCoverFile" type="file" accept=".png,.jpg,.jpeg,.webp" class="form-input" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Артисты (можно выбрать несколько)</label>
+                                    <div id="album-artist-ids-inputs">
+                                        <input type="hidden" name="AlbumArtistIds" value="@Model.Context.Artists.First().Id" />
+                                    </div>
+                                    <div class="picker-box" data-picker="album-artist-ids-inputs" data-multi="true" data-field="AlbumArtistIds">
+                                        <input type="text" class="picker-search" placeholder="Поиск артиста..." />
+                                        <div class="picker-list">
+                                            @for (int i = 0; i < Model.Context.Artists.Count; i++)
+                                            {
+                                                var a = Model.Context.Artists[i];
+                                                <button type="button" class="picker-item @(i == 0 ? "is-selected" : "")" data-value="@a.Id">@a.Name</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Создать альбом</button>
+                            </form>
+                        </section>
+                    }
+                </div>
+
+                <div class="contributions-list">
+                    @if (Model.Context.Albums.Count > 0 && Model.Context.Artists.Count > 0)
+                    {
+                        <section class="surface-card info-card">
+                            <h2 class="info-card-title">Добавить композицию</h2>
+                            <form method="post" asp-page-handler="CreateTrack">
+                                <div class="form-group">
+                                    <label class="form-label">Альбом</label>
+                                    <input type="hidden" id="track-album-id" name="TrackAlbumId" value="@Model.Context.Albums.First().Id" />
+                                    <div class="picker-box" data-picker="track-album-id">
+                                        <input type="text" class="picker-search" placeholder="Поиск альбома..." />
+                                        <div class="picker-list">
+                                            @for (int i = 0; i < Model.Context.Albums.Count; i++)
+                                            {
+                                                var al = Model.Context.Albums[i];
+                                                <button type="button" class="picker-item @(i == 0 ? "is-selected" : "")" data-value="@al.Id">@al.Title (@al.ReleaseDate.Year)</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Артисты (можно выбрать несколько)</label>
+                                    <div id="track-artist-ids-inputs">
+                                        <input type="hidden" name="TrackArtistIds" value="@Model.Context.Artists.First().Id" />
+                                    </div>
+                                    <div class="picker-box" data-picker="track-artist-ids-inputs" data-multi="true" data-field="TrackArtistIds">
+                                        <input type="text" class="picker-search" placeholder="Поиск артиста..." />
+                                        <div class="picker-list">
+                                            @for (int i = 0; i < Model.Context.Artists.Count; i++)
+                                            {
+                                                var a = Model.Context.Artists[i];
+                                                <button type="button" class="picker-item @(i == 0 ? "is-selected" : "")" data-value="@a.Id">@a.Name</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Жанр</label>
+                                    <input type="hidden" id="track-genre-id" name="TrackGenreId" value="@(Model.Context.Genres.FirstOrDefault()?.Id ?? 0)" />
+                                    <div class="picker-box" data-picker="track-genre-id">
+                                        <input type="text" class="picker-search" placeholder="Поиск жанра..." />
+                                        <div class="picker-list">
+                                            @for (int i = 0; i < Model.Context.Genres.Count; i++)
+                                            {
+                                                var g = Model.Context.Genres[i];
+                                                <button type="button" class="picker-item @(i == 0 ? "is-selected" : "")" data-value="@g.Id">@g.Name</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="track-title" class="form-label">Название композиции</label>
+                                    <input id="track-title" name="TrackTitle" type="text" class="form-input" placeholder="Название трека" required />
+                                </div>
+                                <div style="display:flex; gap:12px;">
+                                    <div class="form-group" style="flex:1;">
+                                        <label for="track-number" class="form-label">Номер в альбоме</label>
+                                        <input id="track-number" name="TrackNumber" type="number" min="1" value="1" class="form-input" required />
+                                    </div>
+                                    <div class="form-group" style="flex:1;">
+                                        <label for="track-duration" class="form-label">Длительность (сек.)</label>
+                                        <input id="track-duration" name="TrackDurationSeconds" type="number" min="1" value="180" class="form-input" required />
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="track-about" class="form-label">О композиции</label>
+                                    <input id="track-about" name="TrackAbout" type="text" class="form-input" placeholder="Краткое описание трека" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="track-lyrics" class="form-label">Текст песни</label>
+                                    <textarea id="track-lyrics" name="TrackLyrics" class="form-input" rows="8" placeholder="Введите текст песни построчно..." required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Добавить композицию</button>
+                            </form>
+                        </section>
+                    }
+
+                    @if (isAdmin && Model.Context.AllUsers.Count > 0)
+                    {
+                        <section class="surface-card info-card">
+                            <h2 class="info-card-title">Выдать роль пользователю</h2>
+                            <form method="post" asp-page-handler="AssignRole">
+                                <div class="form-group">
+                                    <label class="form-label">Пользователь</label>
+                                    <input type="hidden" id="assign-user-id" name="AssignUserId" value="@Model.Context.AllUsers.First().Id" />
+                                    <div class="picker-box" data-picker="assign-user-id">
+                                        <input type="text" class="picker-search" placeholder="Поиск пользователя..." />
+                                        <div class="picker-list">
+                                            @for (int i = 0; i < Model.Context.AllUsers.Count; i++)
+                                            {
+                                                var u = Model.Context.AllUsers[i];
+                                                <button type="button" class="picker-item @(i == 0 ? "is-selected" : "")" data-value="@u.Id">@u.Username (@u.RoleName)</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Роль</label>
+                                    <input type="hidden" id="assign-role-id" name="AssignRoleId" value="@(Model.Context.Roles.FirstOrDefault()?.Id ?? 1)" />
+                                    <div class="picker-box" data-picker="assign-role-id">
+                                        <input type="text" class="picker-search" placeholder="Поиск роли..." />
+                                        <div class="picker-list">
+                                            @for (int i = 0; i < Model.Context.Roles.Count; i++)
+                                            {
+                                                var r = Model.Context.Roles[i];
+                                                <button type="button" class="picker-item @(i == 0 ? "is-selected" : "")" data-value="@r.Id">@r.Name</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Выдать роль</button>
+                            </form>
+                        </section>
+
+                        <section class="surface-card info-card">
+                            <h2 class="info-card-title">Удаление аккаунтов</h2>
+                            <input type="text" class="form-input manage-filter-input" data-target="admin-users-list" placeholder="Поиск пользователя..." style="margin-bottom:12px;" />
+                            <div id="admin-users-list" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;">
+                                @foreach (var u in Model.Context.AllUsers)
+                                {
+                                    <div class="manage-filter-item" style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                        <div>
+                                            <a asp-page="/Profile" asp-route-id="@u.Id" class="text-link"><strong>@u.Username &bull; @u.RoleName</strong></a>
+                                        </div>
+                                        <form method="post" asp-page-handler="DeleteUser" style="display:inline;" onsubmit="return confirm('Удалить аккаунт @u.Username?');">
+                                            <input type="hidden" name="userId" value="@u.Id" />
+                                            <button type="submit" class="btn btn-outline" style="padding:3px 10px; font-size:0.8rem; color:#dc2626; border-color:#fecaca;">Удалить</button>
+                                        </form>
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
+
+                    @if (Model.Context.Albums.Count > 0)
+                    {
+                        <section class="surface-card info-card">
+                            <h2 class="info-card-title">Доступные альбомы</h2>
+                            <input type="text" class="form-input manage-filter-input" data-target="delete-albums-list" placeholder="Поиск альбома..." style="margin-bottom:12px;" />
+                            <div id="delete-albums-list" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;">
+                                @foreach (var al in Model.Context.Albums)
+                                {
+                                    <div class="manage-filter-item" style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                        <a asp-page="/Album" asp-route-id="@al.Id" class="text-link"><strong>@al.Title</strong> (@al.ReleaseDate.Year)</a>
+                                        <form method="post" asp-page-handler="DeleteAlbum" style="display:inline;" onsubmit="return confirm('Удалить альбом и все его треки?');">
+                                            <input type="hidden" name="albumId" value="@al.Id" />
+                                            <button type="submit" class="btn btn-outline" style="padding:3px 10px; font-size:0.8rem; color:#dc2626; border-color:#fecaca;">Удалить</button>
+                                        </form>
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
+
+                    @if (Model.Context.Tracks.Count > 0)
+                    {
+                        <section class="surface-card info-card">
+                            <h2 class="info-card-title">Доступные композиции</h2>
+                            <input type="text" class="form-input manage-filter-input" data-target="delete-tracks-list" placeholder="Поиск композиции..." style="margin-bottom:12px;" />
+                            <div id="delete-tracks-list" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto;">
+                                @foreach (var t in Model.Context.Tracks)
+                                {
+                                    <div class="manage-filter-item" style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                                        <div>
+                                            <a asp-page="/Track" asp-route-id="@t.Id" class="text-link"><strong>@t.Title</strong></a>
+                                            <span class="annotation-time" style="margin-left:8px;">@t.AlbumTitle &bull; @t.ViewsCount просм.</span>
+                                        </div>
+                                        <form method="post" asp-page-handler="DeleteTrack" style="display:inline;" onsubmit="return confirm('Удалить композицию?');">
+                                            <input type="hidden" name="trackId" value="@t.Id" />
+                                            <button type="submit" class="btn btn-outline" style="padding:3px 10px; font-size:0.8rem; color:#dc2626; border-color:#fecaca;">Удалить</button>
+                                        </form>
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+
+@section Scripts {
+    <script src="~/js/manage.js" asp-append-version="true"></script>
+}

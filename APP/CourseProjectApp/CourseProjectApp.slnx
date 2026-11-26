@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="WebApp.Api/WebApp.Api.csproj" />
+  <Project Path="WebApp.Api/WebApp.Api.csproj" Id="6defdb73-c47f-48ff-840c-57c02fe537cc" />
   <Project Path="WebApp.DatabaseLibrary/WebApp.DatabaseLibrary.csproj" />
   <Project Path="WebApp/WebApp.csproj" />
 </Solution>

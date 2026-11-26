@@ -1,0 +1,142 @@
+@page
+@model WebApp.Pages.AlbumModel
+@{
+    var album = Model.Album!;
+    ViewData["Title"] = album.Title;
+    bool hasCover = !string.IsNullOrWhiteSpace(album.CoverImageUrl)
+        && album.CoverImageUrl.StartsWith("/images/", StringComparison.OrdinalIgnoreCase);
+}
+
+<main class="page-main">
+    <div class="container">
+        @if (!string.IsNullOrEmpty(Model.StatusMessage))
+        {
+            <div class="alert alert-success" role="alert" style="margin-bottom: 20px;">
+                @Model.StatusMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert" style="margin-bottom: 20px;">
+                @Model.ErrorMessage
+            </div>
+        }
+
+        <section class="surface-card track-hero">
+            <div class="track-hero-left">
+                @if (album.CanManageAlbum)
+                {
+                    <form method="post" asp-page-handler="UpdateCover" enctype="multipart/form-data" style="margin:0;">
+                        <input type="hidden" name="id" value="@album.Id" />
+                        <input id="album-cover-upload"
+                               name="CoverFile"
+                               type="file"
+                               accept=".png,.jpg,.jpeg,.webp"
+                               style="display:none;"
+                               onchange="if (this.files.length > 0) this.form.submit();" />
+                        <label for="album-cover-upload" class="cover-upload-wrap" title="Нажмите, чтобы изменить обложку альбома">
+                            <div class="cover-thumb cover-blue track-cover-lg" style="overflow:hidden;">
+                                @if (hasCover)
+                                {
+                                    <img src="@album.CoverImageUrl" alt="@album.Title" style="width:100%; height:100%; object-fit:cover;" />
+                                }
+                                else
+                                {
+                                    @album.ReleaseDate.Year
+                                }
+                            </div>
+                            <span class="cover-upload-overlay">
+                                <span>Изменить</span>
+                            </span>
+                        </label>
+                    </form>
+                }
+                else
+                {
+                    <div class="cover-thumb cover-blue track-cover-lg" style="overflow:hidden;">
+                        @if (hasCover)
+                        {
+                            <img src="@album.CoverImageUrl" alt="@album.Title" style="width:100%; height:100%; object-fit:cover;" />
+                        }
+                        else
+                        {
+                            @album.ReleaseDate.Year
+                        }
+                    </div>
+                }
+
+                <div>
+                    <p class="track-album-meta">Альбом &bull; @album.ReleaseDate.ToString("dd.MM.yyyy")</p>
+                    <h1 id="album-title" class="track-title-lg">@album.Title</h1>
+
+                    <div class="track-actions-row">
+                        @foreach (var artist in album.Artists)
+                        {
+                            <a asp-page="/Artist" asp-route-id="@artist.Id" class="artist-chip">
+                                <img src="~/icons/user.svg" width="16" height="16" alt="" />
+                                <span>@artist.Name</span>
+                            </a>
+                        }
+
+                        <button type="button" class="btn btn-outline" data-share>
+                            <img src="~/icons/share.svg" width="16" height="16" alt="" />
+                            <span>Поделиться</span>
+                        </button>
+
+                        @if (album.CanManageAlbum)
+                        {
+                            <form method="post" asp-page-handler="DeleteAlbum" style="display:inline;" onsubmit="return confirm('Удалить альбом и все его треки?');">
+                                <input type="hidden" name="id" value="@album.Id" />
+                                <button type="submit" class="btn btn-outline" style="color:#dc2626; border-color:#fecaca;">Удалить альбом</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-block">
+            <div class="section-header">
+                <h2 id="album-tracks-heading" class="section-title">Треклист</h2>
+            </div>
+
+            <div class="surface-card chart-list">
+                @if (album.Tracks.Count == 0)
+                {
+                    <div class="chart-row" style="justify-content:center; color: var(--text-secondary);">
+                        В этом альбоме пока нет треков.
+                    </div>
+                }
+                else
+                {
+                    foreach (var track in album.Tracks)
+                    {
+                        var artistsText = track.Artists.Count > 0
+                            ? string.Join(", ", track.Artists.Select(a => a.Name))
+                            : string.Join(", ", album.Artists.Select(a => a.Name));
+
+                        <a asp-page="/Track" asp-route-id="@track.Id" class="chart-row">
+                            <span class="chart-rank">@track.TrackNumber</span>
+                            <span class="cover-thumb cover-peach" style="overflow:hidden;">
+                                @if (hasCover)
+                                {
+                                    <img src="@album.CoverImageUrl" alt="@album.Title" style="width:100%; height:100%; object-fit:cover;" />
+                                }
+                                else
+                                {
+                                    @track.TrackNumber.ToString("D2")
+                                }
+                            </span>
+                            <span class="chart-track-title">@track.Title</span>
+                            <span class="chart-artist">@artistsText &bull; @WebApp.Converters.SiteConverter.FormatDuration(track.DurationSeconds)</span>
+                            <span class="chart-views">
+                                <span>@WebApp.Converters.SiteConverter.FormatViews(track.ViewsCount)</span>
+                                <img src="~/icons/view.svg" width="16" height="16" alt="" />
+                            </span>
+                        </a>
+                    }
+                }
+            </div>
+        </section>
+    </div>
+</main>

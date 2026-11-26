@@ -1,0 +1,60 @@
+@page
+@model WebApp.Pages.RegisterModel
+@{
+    ViewData["Title"] = "Регистрация";
+}
+
+<main class="auth-main">
+    <section class="surface-card auth-card">
+        <h1 id="register-heading" class="auth-title">Регистрация</h1>
+        <p class="auth-subtitle">Начните разбирать тексты вместе с сообществом</p>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert" style="margin-bottom: 16px;">
+                @Model.ErrorMessage
+            </div>
+        }
+
+        <form method="post">
+            <div class="form-group">
+                <label asp-for="Username" class="form-label">Логин</label>
+                <input asp-for="Username"
+                       id="register-username"
+                       type="text"
+                       class="form-input"
+                       placeholder="Введите логин"
+                       autocomplete="username"
+                       required />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Email" class="form-label">Почта</label>
+                <input asp-for="Email"
+                       id="register-email"
+                       type="email"
+                       class="form-input"
+                       placeholder="Введите почту"
+                       autocomplete="email"
+                       required />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Password" class="form-label">Пароль</label>
+                <input asp-for="Password"
+                       id="register-password"
+                       type="password"
+                       class="form-input"
+                       placeholder="Введите пароль"
+                       autocomplete="new-password"
+                       required />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg auth-submit">Зарегистрироваться</button>
+        </form>
+
+        <p class="auth-footer-note">
+            Уже зарегистрированы? <a asp-page="/Login">Авторизоваться</a>
+        </p>
+    </section>
+</main>

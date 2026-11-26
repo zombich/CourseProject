@@ -1,0 +1,191 @@
+@page
+@model WebApp.Pages.SearchModel
+@{
+    ViewData["Title"] = "Поиск";
+    string[] coverClasses = { "cover-peach", "cover-blue", "cover-teal", "cover-coral", "cover-violet" };
+}
+
+<main class="page-main">
+    <div class="container">
+        <section class="section-block">
+            <div class="section-header">
+                <h1 id="search-heading" class="section-title">Поиск и каталог</h1>
+            </div>
+
+            <form method="get" class="surface-card" style="padding: 20px; margin-bottom: 24px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <input type="text"
+                       name="query"
+                       value="@Model.Query"
+                       class="form-input"
+                       placeholder="Введите запрос..."
+                       style="flex: 2; min-width: 240px;" />
+
+                <select name="genreId" class="form-input" style="flex: 1; min-width: 150px;">
+                    <option value="">Все жанры</option>
+                    @foreach (var g in Model.Results.Genres)
+                    {
+                        <option value="@g.Id" selected="@(Model.GenreId == g.Id)">@g.Name</option>
+                    }
+                </select>
+
+                <select name="sort" class="form-input" style="flex: 1; min-width: 160px;">
+                    <option value="views_desc" selected="@(Model.Sort == "views_desc")">По популярности</option>
+                    <option value="release_desc" selected="@(Model.Sort == "release_desc")">Сначала новые</option>
+                    <option value="release_asc" selected="@(Model.Sort == "release_asc")">Сначала старые</option>
+                    <option value="title" selected="@(Model.Sort == "title")">По названию</option>
+                </select>
+
+                <button type="submit" class="btn btn-primary">Найти</button>
+            </form>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Query) || Model.GenreId.HasValue)
+            {
+                var hasAny = Model.Results.Tracks.Count > 0 ||
+                             Model.Results.Albums.Count > 0 ||
+                             Model.Results.Artists.Count > 0 ||
+                             Model.Results.Users.Count > 0;
+
+                if (!hasAny)
+                {
+                    <div class="surface-card" style="padding: 28px; text-align: center; color: var(--text-secondary);">
+                        Ничего не найдено.
+                    </div>
+                }
+                else
+                {
+                    if (Model.Results.Tracks.Count > 0)
+                    {
+                        <div class="section-block">
+                            <div class="section-header">
+                                <h2 class="section-title">Композиции</h2>
+                            </div>
+                            <div class="surface-card chart-list">
+                                @for (int i = 0; i < Model.Results.Tracks.Count; i++)
+                                {
+                                    var track = Model.Results.Tracks[i];
+                                    var coverClass = coverClasses[i % coverClasses.Length];
+                                    var artistsText = string.Join(", ", track.Artists.Select(a => a.Name));
+                                    bool hasImg = !string.IsNullOrWhiteSpace(track.AlbumImage)
+                                        && track.AlbumImage.StartsWith("/images/", StringComparison.OrdinalIgnoreCase);
+
+                                    <a asp-page="/Track" asp-route-id="@track.Id" class="chart-row">
+                                        <span class="chart-rank">@(i + 1)</span>
+                                        <span class="cover-thumb @coverClass" style="overflow:hidden;">
+                                            @if (hasImg)
+                                            {
+                                                <img src="@track.AlbumImage" alt="@track.AlbumTitle" style="width:100%; height:100%; object-fit:cover;" />
+                                            }
+                                            else
+                                            {
+                                                @((i + 1).ToString("D2"))
+                                            }
+                                        </span>
+                                        <span class="chart-track-title">@track.Title</span>
+                                        <span class="chart-artist">@artistsText</span>
+                                        <span class="chart-views">
+                                            <span>@WebApp.Converters.SiteConverter.FormatViews(track.ViewsCount)</span>
+                                            <img src="~/icons/view.svg" width="16" height="16" alt="" />
+                                        </span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    if (Model.Results.Albums.Count > 0)
+                    {
+                        <div class="section-block">
+                            <div class="section-header">
+                                <h2 class="section-title">Альбомы</h2>
+                            </div>
+                            <div class="critics-grid">
+                                @foreach (var album in Model.Results.Albums)
+                                {
+                                    var artistsText = string.Join(", ", album.Artists.Select(a => a.Name));
+                                    bool hasImg = !string.IsNullOrWhiteSpace(album.CoverImageUrl)
+                                        && album.CoverImageUrl.StartsWith("/images/", StringComparison.OrdinalIgnoreCase);
+
+                                    <a asp-page="/Album" asp-route-id="@album.Id" class="surface-card critic-card">
+                                        <span class="cover-thumb cover-blue" style="overflow:hidden;">
+                                            @if (hasImg)
+                                            {
+                                                <img src="@album.CoverImageUrl" alt="@album.Title" style="width:100%; height:100%; object-fit:cover;" />
+                                            }
+                                            else
+                                            {
+                                                @album.ReleaseDate.Year
+                                            }
+                                        </span>
+                                        <div class="critic-meta">
+                                            <span class="critic-name">@album.Title</span>
+                                            <span class="critic-stats">@artistsText</span>
+                                        </div>
+                                        <span class="badge badge-role">Альбом</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    if (Model.Results.Artists.Count > 0)
+                    {
+                        <div class="section-block">
+                            <div class="section-header">
+                                <h2 class="section-title">Артисты</h2>
+                            </div>
+                            <div class="critics-grid">
+                                @foreach (var artist in Model.Results.Artists)
+                                {
+                                    <a asp-page="/Artist" asp-route-id="@artist.Id" class="surface-card critic-card">
+                                        <span class="avatar-circle" style="overflow:hidden;">
+                                            @if (!string.IsNullOrWhiteSpace(artist.AvatarUrl) && artist.AvatarUrl.StartsWith("/images/", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <img src="@artist.AvatarUrl" alt="@artist.Name" style="width:100%; height:100%; object-fit:cover;" />
+                                            }
+                                            else
+                                            {
+                                                <img src="~/icons/user.svg" width="20" height="20" alt="" />
+                                            }
+                                        </span>
+                                        <div class="critic-meta">
+                                            <span class="critic-name">@artist.Name</span>
+                                            @if (!string.IsNullOrEmpty(artist.Bio))
+                                            {
+                                                <span class="critic-stats">@artist.Bio</span>
+                                            }
+                                        </div>
+                                        <span class="badge badge-role">Артист</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    if (Model.Results.Users.Count > 0)
+                    {
+                        <div class="section-block">
+                            <div class="section-header">
+                                <h2 class="section-title">Пользователи</h2>
+                            </div>
+                            <div class="critics-grid">
+                                @foreach (var user in Model.Results.Users)
+                                {
+                                    <a asp-page="/Profile" asp-route-id="@user.Id" class="surface-card critic-card">
+                                        <span class="avatar-circle">
+                                            <img src="~/icons/user.svg" width="20" height="20" alt="" />
+                                        </span>
+                                        <div class="critic-meta">
+                                            <span class="critic-name">@user.Username</span>
+                                            <span class="critic-stats">@user.AnnotationsCount аннотаций &bull; +@user.LikesCount</span>
+                                        </div>
+                                        <span class="badge badge-role">@user.RoleName</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            }
+        </section>
+    </div>
+</main>

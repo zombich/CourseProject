@@ -6,4 +6,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="0.40.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\images\albums\" />
+    <Folder Include="wwwroot\images\artists\" />
+    <Folder Include="wwwroot\images\annotations\" />
+    <Folder Include="wwwroot\images\users\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WebApp.DatabaseLibrary\WebApp.DatabaseLibrary.csproj" />
+  </ItemGroup>
+
 </Project>
