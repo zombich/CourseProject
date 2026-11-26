@@ -9,6 +9,8 @@ CREATE TABLE users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role_id INT NOT NULL,
+    bio TEXT,
+    avatar_url VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_user_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT
 );
@@ -65,6 +67,8 @@ CREATE TABLE tracks (
     duration_seconds INT NOT NULL,
     views_count BIGINT NOT NULL DEFAULT 0,
     about TEXT,
+    is_lyrics_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    lyrics_verifier_id INT REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP  WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_track_album FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
 );
